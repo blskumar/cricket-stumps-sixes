@@ -95,16 +95,23 @@ function showBowlerPicker(inn){
   overlay('<div class="card"><h2>Over '+(inn.over+1)+': pick your bowler</h2><p>'+esc(M.t[0].team.name)+' are in the field. '+oversText(inn.balls)+' overs bowled, '+inn.runs+'/'+inn.wk+'. Figures are overs-runs-wickets. Each bowler can bowl '+(M.practice?'any number of':q)+' over'+(q===1&&!M.practice?'':'s')+'.</p>'+rows+'</div>');
 }
 function teamLine(inn){return M.t[inn.batSide].team.name+' '+inn.runs+'/'+inn.wk+' ('+oversText(inn.balls)+')';}
-let breakTimer=null;
-function stopBreak(){if(breakTimer){clearInterval(breakTimer);breakTimer=null;}}
-function startSecond(){stopBreak();hideOverlay();startInnings(1,1-M.inn[0].batSide);}
-function showBreak(noAuto){
-  stopBreak();
+function startSecond(){hideOverlay();startInnings(1,1-M.inn[0].batSide);}
+function topPerf(inn){
+  const bats=inn.order.filter(b=>b.balls||b.out).sort((x,y)=>y.runs-x.runs||x.balls-y.balls)[0];
+  const bowls=Object.keys(inn.bs).map(k=>({n:M.t[inn.bowlSide].players[k].name,s:inn.bs[k]})).sort((x,y)=>y.s.wk-x.s.wk||x.s.runs-y.s.runs)[0];
+  let h='';
+  if(bats)h+='<div class="r"><span>Top scorer</span><span><b>'+esc(bats.name)+'</b> '+bats.runs+' ('+bats.balls+')</span></div>';
+  if(bowls)h+='<div class="r"><span>Best bowler</span><span><b>'+esc(bowls.n)+'</b> '+oversText(bowls.s.balls)+'-'+bowls.s.runs+'-'+bowls.s.wk+'</span></div>';
+  return h;
+}
+function showBreak(){
   const a=M.inn[0],userNext=a.batSide!==0;
-  overlay('<div class="card"><h2>Innings break</h2><div class="big">'+esc(teamLine(a))+'</div><p>Target: '+(a.runs+1)+' runs from '+M.overs+' overs.</p>'
-   +'<p>'+(userNext?'You chase. Get '+(a.runs+1)+' to win.':'You bowl. Defend '+a.runs+' to win.')+'</p><p id="brkCount" style="color:var(--brass)"></p><div class="row"><button type="button" class="btn primary" data-act="next2" style="flex:2">'+(userNext?'Start the chase now':'Start bowling now')+'</button><button type="button" class="btn" data-act="card" style="flex:1">Scorecard</button></div></div>');
-  if(!noAuto){let n=6;const f=()=>{const e=$('brkCount');if(e)e.textContent='Second innings starts in '+n+'...';};f();
-    breakTimer=setInterval(()=>{n--;if(n<=0){startSecond();}else f();},1000);}
+  overlay('<div class="card"><h2>Innings break</h2><div class="big">'+esc(teamLine(a))+'</div>'
+   +'<div style="display:grid;gap:4px;font-size:14px;color:var(--mute)">'+topPerf(a)+'</div>'
+   +'<p>Target: <b style="color:var(--fg)">'+(a.runs+1)+'</b> runs from '+M.overs+' overs.</p>'
+   +'<p>'+(userNext?'You chase. Get '+(a.runs+1)+' to win.':'You bowl. Defend '+a.runs+' to win.')+'</p>'
+   +'<p>Take a breather. The match waits until you are ready.</p>'
+   +'<div class="row"><button type="button" class="btn primary" data-act="next2" style="flex:2">Resume match</button><button type="button" class="btn" data-act="card" style="flex:1">Scorecard</button></div></div>');
 }
 function showResult(){
   const r=M.result,head=r.userWon===null?'Tied match':r.userWon?'You win!':'You lose';
@@ -139,10 +146,10 @@ ov.addEventListener('click',e=>{
   else if(a==='bowler'){setBowler(M.t[0].players[+t.dataset.i]);}
   else if(a==='next2'){startSecond();}
   else if(a==='rematch'){newMatch('match');showToss();}
-  else if(a==='card'){stopBreak();showCard(ov.querySelector('[data-act=resume]')?showPause:(M.result?showResult:()=>showBreak(true)));}
+  else if(a==='card'){showCard(ov.querySelector('[data-act=resume]')?showPause:(M.result?showResult:showBreak));}
   else if(a==='closecard'){if(cardBack)cardBack();else hideOverlay();}
   else if(a==='resume'){hideOverlay();}
-  else if(a==='quit'){stopBreak();showMenu();}
+  else if(a==='quit'){showMenu();}
 });
 
 /* ===== input ===== */
