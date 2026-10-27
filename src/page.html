@@ -1,0 +1,151 @@
+<title>Stumps & Sixes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Work+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: one-screen game. Scoreboard on top, floodlit pitch canvas in the middle, thumb controls at the bottom. */
+:root{
+  --bg:#0f1730; --panel:#18234a; --panel2:#223163; --line:#394a8a;
+  --fg:#eef1fb; --mute:#a3afd6; --ball:#e0412f; --ball-ink:#fff;
+  --brass:#f0bf55; --turf:#2e8b57; --ok:#47d089; --bad:#ff6a5a;
+  --display:'Big Shoulders Display','Arial Narrow',Impact,sans-serif;
+  --body:'Work Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.35 var(--body);overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+#app{height:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;max-width:1100px;margin:0 auto;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+#hud{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;justify-content:space-between}
+.board{display:flex;align-items:baseline;gap:10px;min-width:0}
+.tm{font:800 15px var(--display);letter-spacing:.12em;color:var(--brass);text-transform:uppercase}
+.sc{font:800 44px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.sc i{font-style:normal;color:var(--mute);margin:0 2px}
+.ov{font:600 20px var(--display);color:var(--mute);font-variant-numeric:tabular-nums}
+.info{font-size:13px;color:var(--mute);flex:1 1 140px;min-width:0}
+.info b{color:var(--fg);font-weight:600}
+.tools{display:flex;gap:6px}
+.tbtn{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;min-height:34px}
+.tbtn:hover{background:var(--panel2)}
+#chips{display:flex;gap:5px;min-height:24px;flex-wrap:wrap;align-items:center;width:100%}
+#chips span.lab{font:600 12px var(--display);letter-spacing:.14em;color:var(--mute);text-transform:uppercase;margin-right:2px}
+.chip{min-width:24px;height:24px;border-radius:12px;display:inline-grid;place-items:center;font:700 13px var(--display);background:var(--panel2);border:1px solid var(--line);padding:0 4px;box-sizing:border-box}
+.chip.f{background:var(--brass);color:#2a2000;border-color:var(--brass)}
+.chip.s{background:var(--ball);color:#fff;border-color:var(--ball)}
+.chip.w{background:#fff;color:var(--ball);border-color:#fff}
+.chip.x{border-style:dashed}
+
+#sb{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;font-variant-numeric:tabular-nums}
+#sb>div{min-width:0}
+#sb .h{font:600 11px var(--display);letter-spacing:.14em;color:var(--mute);text-transform:uppercase;display:flex;justify-content:space-between;gap:6px}
+#sb .h b{color:var(--fg);font-weight:600}
+#sb .r{display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+#sb .r span:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
+#sb .r span:last-child{color:var(--mute);flex:none}
+#sb .cur span{color:var(--brass);font-weight:600}
+#sb .oth{color:var(--mute);font-size:11px;line-height:1.3;max-height:30px;overflow:auto}
+#sb .oth b{color:var(--fg);font-weight:600}
+#stage{position:relative;flex:1 1 0;min-height:160px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#1b2552}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#toast{position:absolute;left:0;right:0;top:34%;text-align:center;font:800 clamp(44px,12vw,96px)/1 var(--display);letter-spacing:.04em;text-transform:uppercase;pointer-events:none;opacity:0;text-shadow:0 3px 0 rgba(0,0,0,.35)}
+#toast.show{animation:pop 1.3s ease-out forwards}
+@keyframes pop{0%{opacity:0;transform:scale(.6)}15%{opacity:1;transform:scale(1.08)}30%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+#comm{position:absolute;left:8px;right:8px;bottom:6px;font-size:13px;line-height:1.3;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.8);display:flex;flex-direction:column;gap:2px}
+#comm div{background:rgba(10,16,40,.55);border-radius:6px;padding:3px 8px;width:fit-content;max-width:100%}
+#comm div:not(:last-child){opacity:.6}
+
+#controls{display:grid;gap:8px;padding:10px;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row>.grow{flex:1 1 150px;min-width:0}
+.lbl{font:600 12px var(--display);letter-spacing:.14em;color:var(--mute);text-transform:uppercase;display:flex;justify-content:space-between;margin-bottom:3px}
+.lbl output{color:var(--fg)}
+input[type=range]{width:100%;accent-color:var(--brass);height:28px;margin:0}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{flex:1;background:transparent;border:0;border-right:1px solid var(--line);padding:9px 6px;font-size:13px;min-height:40px}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:var(--brass);color:#2a2000;font-weight:600}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:10px 16px;font-weight:600;min-height:44px}
+.btn:hover{border-color:var(--brass)}
+.btn.primary{background:var(--ball);border-color:var(--ball);color:var(--ball-ink);font:800 22px var(--display);letter-spacing:.1em;text-transform:uppercase}
+.btn.primary:active{transform:scale(.97)}
+.btn.toggle[aria-pressed=true]{background:var(--brass);color:#2a2000;border-color:var(--brass)}
+#swing{flex:2 1 160px;min-height:60px}
+#hint{font-size:12px;color:var(--mute);text-align:center;min-height:16px}
+
+#overlay{position:fixed;inset:0;background:rgba(8,12,28,.86);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;width:100%;max-width:560px;max-height:100%;overflow:auto;box-sizing:border-box;display:grid;gap:14px}
+.card h1{font:800 clamp(44px,11vw,72px)/.9 var(--display);margin:0;letter-spacing:.02em;text-transform:uppercase}
+.card h1 em{font-style:normal;color:var(--ball)}
+.card h2{font:800 30px/1 var(--display);margin:0;letter-spacing:.04em;text-transform:uppercase}
+.card p{margin:0;color:var(--mute)}
+.card .big{font:800 40px/1 var(--display);color:var(--fg)}
+.sw{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.team{border:2px solid var(--line);border-radius:12px;padding:10px;background:var(--panel2);text-align:left;display:grid;gap:2px}
+.team[aria-pressed=true]{border-color:var(--brass)}
+.team b{font:800 20px var(--display);letter-spacing:.06em}
+.team span{font-size:12px;color:var(--mute)}
+.team i{display:block;height:6px;border-radius:3px;margin-bottom:4px}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:5px 6px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{font:600 12px var(--display);letter-spacing:.12em;color:var(--mute);text-transform:uppercase}
+.scroll{overflow-x:auto}
+.statline{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--mute)}
+.statline b{color:var(--brass);font:800 20px var(--display)}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12px}
+ul.help{margin:0;padding-left:18px;color:var(--mute);display:grid;gap:6px}
+ul.help b{color:var(--fg)}
+@media (max-width:520px){.sc{font-size:38px}.card{padding:16px}}
+@media (prefers-reduced-motion:reduce){#toast.show{animation:none;opacity:1}}
+</style>
+
+<div id="app">
+  <header id="hud">
+    <div class="board"><span class="tm" id="tmName">Stumps &amp; Sixes</span><span class="sc"><b id="runs">0</b><i>/</i><b id="wkts">0</b></span><span class="ov" id="overs">0.0</span></div>
+    <div class="info" id="info"></div>
+    <div class="tools">
+      <button class="tbtn" id="btnCard" type="button">Card</button>
+      <button class="tbtn" id="btnMute" type="button" aria-pressed="false">Sound on</button>
+      <button class="tbtn" id="btnMenu" type="button">Menu</button>
+    </div>
+    <div id="chips"></div>
+  </header>
+  <section id="sb" aria-label="Scoreboard" hidden></section>
+  <div id="stage">
+    <canvas id="cv" aria-label="Cricket pitch, view from behind the batter"></canvas>
+    <div id="toast" aria-live="polite"></div>
+    <div id="comm" aria-live="polite"></div>
+  </div>
+  <section id="controls">
+    <div id="ctlBat" hidden>
+      <div class="row">
+        <div class="grow">
+          <div class="lbl"><span>Aim &nbsp;(leg ← → off)</span><output id="aimOut">Straight</output></div>
+          <input type="range" id="aim" min="-90" max="90" step="1" value="0" aria-label="Shot direction">
+        </div>
+        <button class="btn toggle" id="loft" type="button" aria-pressed="false">Loft</button>
+        <button class="btn primary" id="swing" type="button">Swing</button>
+      </div>
+    </div>
+    <div id="ctlBowl" hidden>
+      <div class="row">
+        <div class="grow"><div class="lbl"><span>Length</span></div>
+          <div class="seg" id="segLen"><button type="button" data-v="yorker" aria-pressed="false">Yorker</button><button type="button" data-v="full" aria-pressed="false">Full</button><button type="button" data-v="good" aria-pressed="true">Good</button><button type="button" data-v="short" aria-pressed="false">Short</button></div></div>
+        <div class="grow"><div class="lbl"><span>Speed</span></div>
+          <div class="seg" id="segSpd"><button type="button" data-v="slow" aria-pressed="false">Slower</button><button type="button" data-v="stock" aria-pressed="true">Stock</button><button type="button" data-v="quick" aria-pressed="false">Quick</button></div></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="grow"><div class="lbl"><span>Line &nbsp;(leg ← → off)</span><output id="lineOut">Off stump</output></div>
+          <input type="range" id="line" min="-100" max="140" step="1" value="25" aria-label="Line of delivery"></div>
+        <div class="grow"><div class="lbl"><span>Field</span></div>
+          <div class="seg" id="segFld"><button type="button" data-v="att" aria-pressed="false">Attack</button><button type="button" data-v="bal" aria-pressed="true">Balanced</button><button type="button" data-v="def" aria-pressed="false">Defend</button></div></div>
+        <button class="btn primary" id="bowl" type="button">Bowl</button>
+      </div>
+    </div>
+    <div id="ctlWait"><div class="row" style="justify-content:center"><span style="color:var(--mute)">Choose a mode to start playing.</span></div></div>
+    <div id="hint"></div>
+  </section>
+  <div id="overlay" hidden></div>
+</div>
